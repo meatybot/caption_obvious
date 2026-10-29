@@ -1,0 +1,84 @@
+#############################
+# Stage 0: Frontend (src/ -> ex_app/js/)
+#############################
+FROM node:22-slim AS frontend
+
+WORKDIR /build
+COPY package.json package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
+COPY webpack.config.js .eslintrc.js ./
+COPY src ./src
+RUN npm run build
+
+#############################
+# Stage 1: Builder
+#############################
+FROM python:3.12-slim-bookworm AS builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y curl && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python dependencies using a cache mount.
+COPY requirements.txt /
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python3 -m pip install --root-user-action=ignore -r requirements.txt && rm requirements.txt
+
+# Download and install FRP client with checksum verification
+# FRP version and checksums - update these when upgrading
+ARG FRP_VERSION=0.71.1
+ARG FRP_AMD64_SHA256=1d9875210972a5d1a62b2dc4c48df45ab0af05d3ca1b5e494a014428259df803
+ARG FRP_ARM64_SHA256=8edf590b0c396fa42f9c147121a76af83cfc2002b08f5aef0ea1008c43482019
+
+RUN set -ex; \
+    ARCH=$(uname -m); \
+    if [ "$ARCH" = "aarch64" ]; then \
+        FRP_ARCH="arm64"; \
+        FRP_SHA256="${FRP_ARM64_SHA256}"; \
+    else \
+        FRP_ARCH="amd64"; \
+        FRP_SHA256="${FRP_AMD64_SHA256}"; \
+    fi; \
+    FRP_URL="https://github.com/fatedier/frp/releases/download/v${FRP_VERSION}/frp_${FRP_VERSION}_linux_${FRP_ARCH}.tar.gz"; \
+    echo "Downloading FRP v${FRP_VERSION} for ${FRP_ARCH}..."; \
+    curl -fsSL "${FRP_URL}" -o /tmp/frp.tar.gz; \
+    ACTUAL_SHA256=$(sha256sum /tmp/frp.tar.gz | cut -d' ' -f1); \
+    if [ "$ACTUAL_SHA256" != "$FRP_SHA256" ]; then \
+        echo "Checksum verification failed for FRP v${FRP_VERSION} (${FRP_ARCH})"; \
+        echo "Expected: ${FRP_SHA256}"; \
+        echo "Got:      ${ACTUAL_SHA256}"; \
+        exit 1; \
+    fi; \
+    tar -C /tmp -xzf /tmp/frp.tar.gz; \
+    cp /tmp/frp_${FRP_VERSION}_linux_${FRP_ARCH}/frpc /usr/local/bin/frpc; \
+    chmod +x /usr/local/bin/frpc; \
+    rm -rf /tmp/frp_${FRP_VERSION}_linux_${FRP_ARCH} /tmp/frp.tar.gz; \
+    echo "FRP client installed successfully"
+
+#############################
+# Stage 2: Final Runtime Image
+#############################
+FROM python:3.12-slim-bookworm
+
+# Copy installed Python packages and FRP client from the builder.
+COPY --from=builder /usr/local/ /usr/local/
+
+# Install any runtime apt packages your app needs.
+RUN apt-get update && apt-get install -y curl procps && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Add application files.
+ADD /ex_app/cs[s] /ex_app/css
+ADD /ex_app/im[g] /ex_app/img
+COPY --from=frontend /build/ex_app/js /ex_app/js
+ADD /ex_app/l10[n] /ex_app/l10n
+ADD /ex_app/li[b] /ex_app/lib
+
+# Copy scripts with the proper permissions.
+COPY --chmod=775 healthcheck.sh /
+COPY --chmod=775 start.sh /
+
+# Set working directory and define entrypoint/healthcheck.
+WORKDIR /ex_app/lib
+ENTRYPOINT ["/start.sh", "python3", "main.py"]
+HEALTHCHECK --interval=2s --timeout=2s --retries=300 CMD /healthcheck.sh

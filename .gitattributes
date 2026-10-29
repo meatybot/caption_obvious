@@ -1,0 +1,7 @@
+# Declare files that always have LF line endings on checkout
+* text eol=lf
+
+# Binary files: no line-ending conversion
+*.png binary
+*.jpg binary
+*.woff2 binary

@@ -1,0 +1,87 @@
+name: Lint and build
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lint-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          # Same as the Docker image (python:3.12-slim-bookworm).
+          python-version: "3.12"
+      - name: Install
+        run: python3 -m pip install -r requirements.txt ruff black isort pylint
+      - name: isort
+        run: isort --check-only --diff ex_app/lib
+      - name: black
+        run: black --check --diff ex_app/lib
+      - name: ruff
+        run: ruff check ex_app/lib
+      - name: pylint
+        run: pylint --recursive=y ex_app/lib
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: package.json
+          cache: npm
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
+
+  appinfo:
+    name: info.xml
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate against the app store schema
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq libxml2-utils xsltproc
+          base=https://raw.githubusercontent.com/nextcloud/appstore/master/nextcloudappstore/api/v1/release
+          curl -fsSL -o info.xsd "$base/info.xsd"
+          curl -fsSL -o pre-info.xslt "$base/pre-info.xslt"
+          # As the app store does: pre-info.xslt orders the elements and drops the ones the schema does
+          # not know, such as the ExApp <routes> that AppAPI reads.
+          xsltproc pre-info.xslt appinfo/info.xml > info.pre.xml
+          xmllint --noout --schema info.xsd info.pre.xml
+      - name: Versions agree
+        run: |
+          xml=$(xmllint --xpath 'string(//info/version)' appinfo/info.xml)
+          tag=$(xmllint --xpath 'string(//external-app/docker-install/image-tag)' appinfo/info.xml)
+          npm=$(node -p "require('./package.json').version")
+          echo "info.xml=$xml image-tag=$tag package.json=$npm"
+          test "$xml" = "$tag" && test "$xml" = "$npm"
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build (not pushed)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -1,0 +1,19 @@
+# Frontend
+node_modules/
+npm-debug.log*
+# Built from src/ by `npm run build`, also inside the Docker image.
+/ex_app/js/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.mypy_cache/
+.ruff_cache/
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store

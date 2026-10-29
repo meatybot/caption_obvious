@@ -1,0 +1,6 @@
+.git
+.github
+node_modules
+ex_app/js
+**/__pycache__
+.ruff_cache

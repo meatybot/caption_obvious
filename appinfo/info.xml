@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<info>
+	<id>caption_obvious</id>
+	<name>Caption Obvious</name>
+	<summary>Caption imgflip memes from the Smart Picker</summary>
+	<description>
+	<![CDATA[Caption Obvious adds a meme entry to the Smart Picker in Text, Talk and the other apps that use it.
+Search imgflip's templates, write the captions, and insert the meme. The meme is hosted publicly on imgflip,
+and imgflip links render as the image.]]>
+	</description>
+	<version>0.0.2</version>
+	<licence>MIT</licence>
+	<author homepage="https://github.com/meatybot">meatybot</author>
+	<namespace>CaptionObvious</namespace>
+	<category>tools</category>
+	<website>https://github.com/meatybot/caption_obvious</website>
+	<bugs>https://github.com/meatybot/caption_obvious/issues</bugs>
+	<repository type="git">https://github.com/meatybot/caption_obvious</repository>
+	<screenshot>https://raw.githubusercontent.com/meatybot/caption_obvious/main/screenshots/picker.png</screenshot>
+	<dependencies>
+		<nextcloud min-version="31" max-version="36"/>
+	</dependencies>
+	<external-app>
+		<docker-install>
+			<registry>ghcr.io</registry>
+			<image>meatybot/caption_obvious</image>
+			<image-tag>0.0.2</image-tag>
+		</docker-install>
+		<routes>
+			<route>
+				<url>^/js/.*</url>
+				<verb>GET</verb>
+				<access_level>USER</access_level>
+			</route>
+			<route>
+				<url>^/api/.*</url>
+				<verb>GET,POST</verb>
+				<access_level>USER</access_level>
+			</route>
+			<route>
+				<url>^/(image|img)/.*</url>
+				<verb>GET</verb>
+				<access_level>PUBLIC</access_level>
+			</route>
+		</routes>
+	</external-app>
+</info>
