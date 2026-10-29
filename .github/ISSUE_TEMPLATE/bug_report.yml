@@ -1,0 +1,42 @@
+name: Bug report
+description: Something does not work as described in the README
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: nextcloud
+    attributes:
+      label: Nextcloud version
+      placeholder: "32.0.1"
+    validations:
+      required: true
+  - type: input
+    id: app_api
+    attributes:
+      label: AppAPI version or branch
+      description: This app needs AppAPI with ExApp reference providers.
+    validations:
+      required: true
+  - type: dropdown
+    id: daemon
+    attributes:
+      label: Deploy daemon
+      options:
+        - HaRP
+        - Docker Socket Proxy
+        - Manual install
+        - Kubernetes
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: The browser console, `docker logs nc_app_caption_obvious`, and Nextcloud's log around the time it happened.
+      render: text

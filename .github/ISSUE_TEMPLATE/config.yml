@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: AppAPI reference provider support
+    url: https://github.com/nextcloud/app_api/issues/1099
+    about: The AppAPI feature this app depends on.
